@@ -28,6 +28,11 @@
             margin: 0;
             padding: 20px;
             background-image: radial-gradient(circle at 50% 0%, #2a1f45 0%, #0f0b1a 60%);
+            box-sizing: border-box;
+        }
+
+        *, *:before, *:after {
+            box-sizing: inherit;
         }
 
         h1 {
@@ -41,6 +46,7 @@
             text-shadow: 0 0 20px rgba(176, 38, 255, 0.4);
             margin-bottom: 20px;
             text-transform: uppercase;
+            text-align: center;
         }
 
         .sequencer-container {
@@ -71,6 +77,8 @@
         .btn-group {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .btn {
@@ -240,6 +248,31 @@
             text-transform: uppercase;
             margin-bottom: 2px;
         }
+
+        .btn, select, input[type="range"], .step {
+            touch-action: manipulation;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            h1 { font-size: 2.2rem; }
+            .controls { flex-direction: column; align-items: stretch; padding: 15px; gap: 15px; }
+            .btn-group { flex-wrap: wrap; justify-content: center; }
+            .btn { padding: 10px 12px; font-size: 0.8rem; flex: 1; min-width: 45%; }
+            .sequencer-container { padding: 15px; }
+            .grid-container, .indicator-row { grid-template-columns: 50px repeat(16, 1fr); gap: 2px; }
+            .track-label { font-size: 0.65em; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
+            .step:nth-child(4n + 2) { margin-right: 2px; }
+            .slider-group { width: 100%; justify-content: space-between; }
+            input[type="range"] { flex-grow: 1; }
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            h1 { font-size: 1.8rem; }
+            .grid-container, .indicator-row { grid-template-columns: 35px repeat(16, 1fr); }
+            .track-label { font-size: 0.5em; line-height: 1.1; word-wrap: break-word; }
+        }
     </style>
 </head>
 <body>
@@ -256,8 +289,8 @@
                 <button id="exportBtn" class="btn btn-blue">MIDI ↓</button>
             </div>
             
-            <div class="flex gap-8">
-                <div>
+            <div class="flex flex-col md:flex-row gap-4 md:gap-8 w-full md:w-auto">
+                <div class="flex-1">
                     <div class="label-text">Tempo</div>
                     <div class="slider-group">
                         <input type="range" id="bpmSlider" min="110" max="140" value="124">
@@ -265,7 +298,7 @@
                     </div>
                 </div>
 
-                <div>
+                <div class="flex-1">
                     <div class="label-text">Master Vol</div>
                     <div class="slider-group">
                         <input type="range" id="volSlider" min="0" max="100" value="80">
@@ -274,9 +307,9 @@
                 </div>
             </div>
 
-            <div>
+            <div class="w-full md:w-auto">
                 <div class="label-text">Preset</div>
-                <select id="presetSelect">
+                <select id="presetSelect" class="w-full">
                     <option value="" disabled selected>SELECT GROOVE</option>
                     <!-- Options populated by JS -->
                 </select>
