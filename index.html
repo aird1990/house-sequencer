@@ -253,6 +253,26 @@
             letter-spacing: 2px;
         }
 
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            display: none; justify-content: center; align-items: center;
+            z-index: 50; backdrop-filter: blur(2px);
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content {
+            background: var(--panel-bg); border: 2px solid var(--club-purple);
+            border-radius: 12px; padding: 24px; width: 90%; max-width: 380px;
+            box-shadow: 0 0 30px rgba(176, 38, 255, 0.3);
+        }
+        .modal-input {
+            background: #111; border: 1px solid #444; color: var(--club-pink);
+            padding: 6px 10px; border-radius: 4px; width: 80px;
+            font-family: inherit; text-align: center; text-transform: uppercase;
+        }
+        .modal-input:focus { border-color: var(--club-pink); outline: none; box-shadow: 0 0 8px rgba(255, 42, 109, 0.4); }
+
         @media (max-width: 640px) {
             h1 { font-size: 2rem; }
             .sequencer-container { padding: 15px; }
@@ -273,6 +293,7 @@
                 <button id="playBtn" class="btn">▶ PLAY</button>
                 <button id="stopBtn" class="btn">■ STOP</button>
                 <button id="clearBtn" class="btn btn-danger">CLEAR</button>
+                <button id="settingsBtn" class="btn" title="MIDI Settings">⚙ SETTINGS</button>
             </div>
             
             <div class="flex flex-wrap gap-6 items-center flex-grow justify-center sm:justify-end">
@@ -336,6 +357,25 @@
     
     <div class="description">
         House Music All Night Long
+    </div>
+
+    <!-- MIDI Settings Modal -->
+    <div id="midiSettingsModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-xl font-bold text-[#b026ff] mb-4 text-center font-montserrat tracking-wide">MIDI MAPPING</h2>
+            <p class="text-xs text-gray-400 mb-4 text-center">Format: Note+Octave (e.g. C3, D#2)<br>Roland Standard (C4 = 60)</p>
+            
+            <div id="midi-settings-list" class="mb-4">
+                <!-- Dynamic input rows injected here -->
+            </div>
+            
+            <div id="settings-error" class="text-red-500 text-xs text-center h-4 mb-4 uppercase"></div>
+
+            <div class="flex justify-end gap-2">
+                <button id="cancelSettingsBtn" class="btn btn-danger">CANCEL</button>
+                <button id="saveSettingsBtn" class="btn btn-blue">SAVE</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -441,6 +481,85 @@
             new Array(STEPS).fill(false),
             new Array(STEPS).fill(false)
         ];
+
+        // --- MIDI Mapping Setup ---
+        const TRACK_LABELS = ['Open Hat', 'Closed Hat', 'Clap', 'Kick'];
+        // Default mapping: OH(A#2=46), CH(F#2=42), Clap(D#2=39), Kick(C2=36)
+        let midiMapping = [46, 42, 39, 36]; 
+        const noteNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+        function noteToName(noteIndex) {
+            if (noteIndex < 0 || noteIndex > 127) return "---";
+            const octave = Math.floor(noteIndex / 12) - 1;
+            const name = noteNames[noteIndex % 12];
+            return `${name}${octave}`;
+        }
+
+        function nameToNote(noteName) {
+            if (!noteName) return null;
+            const match = noteName.trim().match(/^([a-gA-G][#bB]?)(-?\d+)$/);
+            if (!match) return null;
+
+            let name = match[1].toUpperCase();
+            if (name.endsWith('B')) {
+                const flatMap = {"DB":"C#", "EB":"D#", "GB":"F#", "AB":"G#", "BB":"A#", "CB":"B", "FB":"E"};
+                name = flatMap[name] || name;
+            }
+
+            const octave = parseInt(match[2], 10);
+            const nameIdx = noteNames.indexOf(name);
+            if (nameIdx === -1) return null;
+
+            const note = (octave + 1) * 12 + nameIdx;
+            if (note < 0 || note > 127) return null;
+            return note;
+        }
+
+        function openSettings() {
+            const list = document.getElementById('midi-settings-list');
+            list.innerHTML = '';
+            
+            TRACK_LABELS.forEach((label, i) => {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center mb-3';
+                row.innerHTML = `
+                    <span class="text-sm font-bold text-gray-300 w-24 uppercase font-montserrat">${label}</span>
+                    <input type="text" id="midi-input-${i}" class="modal-input" value="${noteToName(midiMapping[i])}">
+                `;
+                list.appendChild(row);
+            });
+
+            document.getElementById('settings-error').innerText = '';
+            document.getElementById('midiSettingsModal').classList.add('active');
+        }
+
+        function saveSettings() {
+            let newMapping = [];
+            let hasError = false;
+            const errorEl = document.getElementById('settings-error');
+            errorEl.innerText = '';
+
+            for (let i = 0; i < 4; i++) {
+                const inputEl = document.getElementById(`midi-input-${i}`);
+                const val = inputEl.value;
+                const noteNum = nameToNote(val);
+                
+                if (noteNum === null) {
+                    hasError = true;
+                    inputEl.style.borderColor = '#ff5555';
+                } else {
+                    inputEl.style.borderColor = '#444';
+                    newMapping.push(noteNum);
+                }
+            }
+
+            if (hasError) {
+                errorEl.innerText = 'INVALID FORMAT! USE C4, D#2 ETC.';
+            } else {
+                midiMapping = newMapping;
+                document.getElementById('midiSettingsModal').classList.remove('active');
+            }
+        }
 
         // --- 30 House Presets (4-Bar with Fills) ---
         const presets = [
@@ -652,13 +771,12 @@
             const PPQ = 480;
             const stepTicks = 120;
             let events = [];
-            const noteMap = { 3: 36, 2: 39, 1: 42, 0: 46 };
 
             for (let step = 0; step < STEPS; step++) {
                 const tick = step * stepTicks;
                 for (let row = 0; row < 4; row++) {
                     if (gridState[row][step]) {
-                        const note = noteMap[row];
+                        const note = midiMapping[row];
                         events.push({ tick: tick, type: 0x90, note: note, velocity: 100 });
                         events.push({ tick: tick + 60, type: 0x80, note: note, velocity: 0 });
                     }
@@ -686,7 +804,7 @@
             const blob = new Blob([bytes], { type: 'audio/midi' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a'); 
-            a.href = url; a.download = `house_groove_${Date.now()}.mid`; 
+            a.href = url; a.download = `house_groove.mid`; 
             document.body.appendChild(a); a.click();
             document.body.removeChild(a); URL.revokeObjectURL(url);
         }
@@ -712,6 +830,13 @@
             document.getElementById('clearBtn').addEventListener('click', clearGrid);
             document.getElementById('exportBtn').addEventListener('click', exportMIDI);
             
+            // MIDI Settings Events
+            document.getElementById('settingsBtn').addEventListener('click', openSettings);
+            document.getElementById('cancelSettingsBtn').addEventListener('click', () => {
+                document.getElementById('midiSettingsModal').classList.remove('active');
+            });
+            document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+
             document.getElementById('bpmSlider').addEventListener('input', (e) => {
                 bpm = parseInt(e.target.value);
                 document.getElementById('bpmVal').innerText = bpm;
